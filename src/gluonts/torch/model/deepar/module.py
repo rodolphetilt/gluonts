@@ -98,9 +98,9 @@ class DeepARModel(nn.Module):
         context_length: int,
         prediction_length: int,
         num_feat_dynamic_real: int = 1,
-        num_feat_static_real: int = 1,
-        num_feat_static_cat: int = 1,
-        cardinality: List[int] = [1],
+        num_feat_static_real: int = 0,
+        num_feat_static_cat: int = 0,
+        cardinality: List[int] = [],
         embedding_dimension: Optional[List[int]] = None,
         num_layers: int = 2,
         hidden_size: int = 40,
@@ -115,9 +115,9 @@ class DeepARModel(nn.Module):
         super().__init__()
 
         assert distr_output.event_shape == ()
-        assert num_feat_dynamic_real > 0
-        assert num_feat_static_real > 0
-        assert num_feat_static_cat > 0
+        # assert num_feat_dynamic_real > 0
+        # assert num_feat_static_real > 0
+        # assert num_feat_static_cat > 0
         assert len(cardinality) == num_feat_static_cat
         assert (
             embedding_dimension is None
@@ -251,18 +251,23 @@ class DeepARModel(nn.Module):
             dim=-2,
         )
 
-        embedded_cat = self.embedder(feat_static_cat)
-        static_feat = torch.cat(
-            (embedded_cat, feat_static_real, scale.log()),
-            dim=-1,
-        )
-        expanded_static_feat = unsqueeze_expand(
-            static_feat, dim=-2, size=time_feat.shape[-2]
-        )
+        if self.num_feat_static_cat > 0:
+            embedded_cat = self.embedder(feat_static_cat)
+            static_feat = torch.cat(
+                (embedded_cat, feat_static_real, scale.log()),
+                dim=-1,
+            )
+            expanded_static_feat = unsqueeze_expand(
+                static_feat, dim=-2, size=time_feat.shape[-2]
+            )
+            features = torch.cat((expanded_static_feat, time_feat), dim=-1)
+        else:
+            expanded_log = unsqueeze_expand(
+                scale.log(), dim=-2, size=time_feat.shape[-2]
+            )
+            features = torch.cat((expanded_log, time_feat), dim=-1)
 
-        features = torch.cat((expanded_static_feat, time_feat), dim=-1)
-
-        return torch.cat((lags, features), dim=-1), scale, static_feat
+        return torch.cat((lags, features), dim=-1), scale, _
 
     def unroll_lagged_rnn(
         self,
