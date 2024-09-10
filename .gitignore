@@ -24,6 +24,11 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+
+# specific
+notebooks/
+data/
+
 # C extensions
 *.so
 
