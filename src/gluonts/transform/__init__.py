@@ -31,6 +31,7 @@ __all__ = [
     "ContinuousTimePointSampler",
     "ContinuousTimeUniformSampler",
     "ContinuousTimePredictionSampler",
+    "DeepARInstanceSplitter",
     "ExpandDimArray",
     "ExpectedNumInstanceSampler",
     "NumInstanceSampler",
@@ -130,4 +131,5 @@ from .split import (
     CanonicalInstanceSplitter,
     ContinuousTimeInstanceSplitter,
     InstanceSplitter,
+    DeepARInstanceSplitter,
 )

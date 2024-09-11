@@ -32,7 +32,7 @@ class DeepARLightningModule(pl.LightningModule):
 
     Parameters
     ----------
-    model_kwargs
+    model_kwargs_
         Keyword arguments to construct the ``DeepARModel`` to be trained.
     loss
         Loss function to be used for training.
@@ -68,6 +68,7 @@ class DeepARLightningModule(pl.LightningModule):
         """
         Execute training step.
         """
+
         train_loss = self.model.loss(
             **select(self.inputs, batch),
             future_observed_values=batch["future_observed_values"],

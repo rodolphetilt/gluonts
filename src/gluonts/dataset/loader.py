@@ -15,6 +15,7 @@ import logging
 from typing import Callable, Iterable, Optional
 
 import numpy as np
+import torch
 
 from gluonts.dataset import DataBatch, Dataset
 from gluonts.itertools import (

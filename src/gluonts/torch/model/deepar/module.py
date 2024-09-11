@@ -522,6 +522,9 @@ class DeepARModel(nn.Module):
         future_only: bool = False,
         aggregate_by=torch.mean,
     ) -> torch.Tensor:
+
+        # print("LOSS")
+
         extra_dims = len(future_target.shape) - len(past_target.shape)
         extra_shape = future_target.shape[:extra_dims]
         batch_shape = future_target.shape[: extra_dims + 1]
