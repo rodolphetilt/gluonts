@@ -161,6 +161,132 @@ class InstanceSplitter(FlatMapTransformation):
             yield self._split_instance(entry, idx)
 
 
+class DeepARInstanceSplitter(FlatMapTransformation):
+    """
+    Split instances from a dataset, by slicing the target and time series
+    fields at points in time, while separating past and future features explicitly.
+    It splits `past_feat_dynamic_real` and `future_feat_dynamic_real` independently
+    from each other and from other fields such as target.
+    """
+
+    # @validated()
+    def __init__(
+        self,
+        target_field: str,
+        is_pad_field: str,
+        start_field: str,
+        forecast_start_field: str,
+        past_feat_dynamic_real_field: str,
+        instance_sampler: InstanceSampler,
+        past_length: int,
+        future_length: int,
+        lead_time: int = 0,
+        output_NTC: bool = True,
+        time_series_fields: List[str] = [],
+        dummy_value: float = 0.0,
+    ) -> None:
+        super().__init__()
+
+        assert future_length > 0, "The value of `future_length` should be > 0"
+
+        self.instance_sampler = instance_sampler
+        self.past_length = past_length
+        self.future_length = future_length
+        self.lead_time = lead_time
+        self.output_NTC = output_NTC
+        self.ts_fields = time_series_fields
+        self.target_field = target_field
+        self.is_pad_field = is_pad_field
+        self.start_field = start_field
+        self.forecast_start_field = forecast_start_field
+        self.past_feat_dynamic_real_field = past_feat_dynamic_real_field
+        self.dummy_value = dummy_value
+
+    def _past(self, col_name):
+        return f"past_{col_name}"
+
+    def _future(self, col_name):
+        return f"future_{col_name}"
+
+    def _split_array(
+        self,
+        array: np.ndarray,
+        idx: int,
+        past_array: np.ndarray | None = None,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        _array = array if past_array is None else past_array.astype(np.float32)
+        if idx >= self.past_length:
+            past_piece = _array[..., idx - self.past_length : idx]
+        else:
+            past_piece = pad_axis(
+                _array[..., :idx],
+                axis=-1,
+                left=self.past_length - idx,
+                value=self.dummy_value,
+            )
+
+        future_start = idx + self.lead_time
+        future_slice = slice(future_start, future_start + self.future_length)
+        future_piece = array[..., future_slice]
+
+        return past_piece, future_piece
+
+    def _split_instance(self, entry: dict, idx: int) -> dict:
+        slice_cols = self.ts_fields + [self.target_field]
+        dtype = entry[self.target_field].dtype
+
+        entry = entry.copy()
+        try:
+            entry["past_feat_dynamic_real"] = np.concatenate(
+                (entry["time_feat"][:5, ...], entry["past_feat_dynamic_real"]),
+                axis=0,
+            )
+        except:
+            entry["past_feat_dynamic_real"] = np.concatenate(
+                (
+                    entry["time_feat"][
+                        :5, : entry["past_feat_dynamic_real"].shape[1]
+                    ],
+                    entry["past_feat_dynamic_real"],
+                ),
+                axis=0,
+            )
+        for ts_field in slice_cols:
+            if ts_field == "time_feat":
+                past_entry = entry["past_feat_dynamic_real"]
+                del entry["past_feat_dynamic_real"]
+            else:
+                past_entry = None
+            past_piece, future_piece = self._split_array(
+                entry[ts_field], idx, past_entry
+            )
+
+            if self.output_NTC:
+                past_piece = past_piece.transpose()
+                future_piece = future_piece.transpose()
+
+            entry[self._past(ts_field)] = past_piece
+            entry[self._future(ts_field)] = future_piece
+            del entry[ts_field]
+
+        pad_indicator = np.zeros(self.past_length, dtype=dtype)
+        pad_length = max(self.past_length - idx, 0)
+        pad_indicator[:pad_length] = 1
+
+        entry[self._past(self.is_pad_field)] = pad_indicator
+        entry[self.forecast_start_field] = (
+            entry[self.start_field] + idx + self.lead_time
+        )
+
+        return entry
+
+    def flatmap_transform(self, entry: dict, is_train: bool) -> Iterator[dict]:
+        sampled_indices = self.instance_sampler(entry[self.target_field])
+
+        for idx in sampled_indices:
+            yield self._split_instance(entry, idx)
+
+
 class CanonicalInstanceSplitter(FlatMapTransformation):
     """
     Selects instances, by slicing the target and other time series like arrays
