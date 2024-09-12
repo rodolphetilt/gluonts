@@ -528,7 +528,7 @@ class DeepARInstanceSplitter(FlatMapTransformation):
         idx: int,
         past_array: np.ndarray | None = None,
     ) -> Tuple[np.ndarray, np.ndarray]:
-        _array = array if past_array is None else past_array
+        _array = array if past_array is None else past_array.astype(np.float32)
         if idx >= self.past_length:
             past_piece = _array[..., idx - self.past_length : idx]
         else:
@@ -550,10 +550,21 @@ class DeepARInstanceSplitter(FlatMapTransformation):
         dtype = entry[self.target_field].dtype
 
         entry = entry.copy()
-        entry["past_feat_dynamic_real"] = np.concatenate(
-            (entry["time_feat"][:5, ...], entry["past_feat_dynamic_real"]),
-            axis=0,
-        )
+        try:
+            entry["past_feat_dynamic_real"] = np.concatenate(
+                (entry["time_feat"][:5, ...], entry["past_feat_dynamic_real"]),
+                axis=0,
+            )
+        except:
+            entry["past_feat_dynamic_real"] = np.concatenate(
+                (
+                    entry["time_feat"][
+                        :5, : entry["past_feat_dynamic_real"].shape[1]
+                    ],
+                    entry["past_feat_dynamic_real"],
+                ),
+                axis=0,
+            )
         for ts_field in slice_cols:
             if ts_field == "time_feat":
                 past_entry = entry["past_feat_dynamic_real"]
