@@ -322,22 +322,7 @@ class DeepAREstimator(PyTorchLightningEstimator):
             "test": TestSplitSampler(),
         }[mode]
 
-        return InstanceSplitter(
-            target_field=FieldName.TARGET,
-            is_pad_field=FieldName.IS_PAD,
-            start_field=FieldName.START,
-            forecast_start_field=FieldName.FORECAST_START,
-            instance_sampler=instance_sampler,
-            past_length=module.model._past_length,
-            future_length=self.prediction_length,
-            time_series_fields=[
-                FieldName.FEAT_TIME,
-                FieldName.OBSERVED_VALUES,
-            ],
-            dummy_value=self.distr_output.value_in_support,
-        )
-
-        # return DeepARInstanceSplitter(
+        # return InstanceSplitter(
         #     target_field=FieldName.TARGET,
         #     is_pad_field=FieldName.IS_PAD,
         #     start_field=FieldName.START,
@@ -345,13 +330,28 @@ class DeepAREstimator(PyTorchLightningEstimator):
         #     instance_sampler=instance_sampler,
         #     past_length=module.model._past_length,
         #     future_length=self.prediction_length,
-        #     past_feat_dynamic_real_field="past_feat_dynamic_real",
         #     time_series_fields=[
         #         FieldName.FEAT_TIME,
         #         FieldName.OBSERVED_VALUES,
         #     ],
         #     dummy_value=self.distr_output.value_in_support,
         # )
+
+        return DeepARInstanceSplitter(
+            target_field=FieldName.TARGET,
+            is_pad_field=FieldName.IS_PAD,
+            start_field=FieldName.START,
+            forecast_start_field=FieldName.FORECAST_START,
+            instance_sampler=instance_sampler,
+            past_length=module.model._past_length,
+            future_length=self.prediction_length,
+            past_feat_dynamic_real_field="past_feat_dynamic_real",
+            time_series_fields=[
+                FieldName.FEAT_TIME,
+                FieldName.OBSERVED_VALUES,
+            ],
+            dummy_value=self.distr_output.value_in_support,
+        )
 
     def create_training_data_loader(
         self,
