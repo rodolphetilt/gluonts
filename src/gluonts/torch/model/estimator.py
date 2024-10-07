@@ -54,6 +54,7 @@ class PyTorchLightningEstimator(Estimator):
     ) -> None:
         super().__init__(lead_time=lead_time)
         self.trainer_kwargs = trainer_kwargs
+        self.trainer = None
 
     def create_transformation(self) -> Transformation:
         """
@@ -198,7 +199,7 @@ class PyTorchLightningEstimator(Estimator):
         )
 
         custom_callbacks = self.trainer_kwargs.pop("callbacks", [])
-        trainer = pl.Trainer(
+        self.trainer = pl.Trainer(
             **{
                 "accelerator": "auto",
                 "callbacks": [checkpoint] + custom_callbacks,
@@ -206,7 +207,7 @@ class PyTorchLightningEstimator(Estimator):
             }
         )
 
-        trainer.fit(
+        self.trainer.fit(
             model=training_network,
             train_dataloaders=training_data_loader,
             val_dataloaders=validation_data_loader,
@@ -226,7 +227,7 @@ class PyTorchLightningEstimator(Estimator):
         return TrainOutput(
             transformation=transformation,
             trained_net=best_model,
-            trainer=trainer,
+            trainer=self.trainer,
             predictor=self.create_predictor(transformation, best_model),
         )
 
